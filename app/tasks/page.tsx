@@ -1,76 +1,117 @@
 "use client";
 
-import { useMemo } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
 import { useTasks } from "@/lib/useTasks";
-import { todayISO } from "@/lib/dates";
+import { todayISO, tomorrowISO, endOfWeekISO } from "@/lib/dates";
+import QuickAddTask from "@/components/QuickAddTask";
 import TaskRow from "@/components/TaskRow";
+import CalendarView from "@/components/CalendarView";
+import { Task } from "@/lib/types";
 
-export default function DashboardPage() {
-  const { tasks, loading, toggleTask, deleteTask } = useTasks();
-
-  const today = todayISO();
-  const todayTasks = useMemo(
-    () =>
-      tasks.filter((t) => t.due_date === today && t.status === "pendiente"),
-    [tasks, today]
+function TaskGroup({
+  title,
+  tasks,
+  onToggle,
+  onDelete,
+}: {
+  title: string;
+  tasks: Task[];
+  onToggle: (id: string, status: Task["status"]) => void;
+  onDelete: (id: string) => void;
+}) {
+  if (tasks.length === 0) return null;
+  return (
+    <div className="mb-8">
+      <h2 className="text-sm text-muted mb-1">{title}</h2>
+      <div>
+        {tasks.map((t) => (
+          <TaskRow key={t.id} task={t} onToggle={onToggle} onDelete={onDelete} />
+        ))}
+      </div>
+    </div>
   );
-  const doneToday = useMemo(
-    () => tasks.filter((t) => t.due_date === today && t.status === "hecha"),
-    [tasks, today]
-  );
+}
 
-  const dateLabel = new Date().toLocaleDateString("es-AR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+export default function TasksPage() {
+  const { tasks, loading, addTask, toggleTask, deleteTask } = useTasks();
+  const [view, setView] = useState<"lista" | "calendario">("lista");
 
-  const totalToday = todayTasks.length + doneToday.length;
-  const pct = totalToday === 0 ? 0 : Math.round((doneToday.length / totalToday) * 100);
+  const groups = useMemo(() => {
+    const today = todayISO();
+    const tomorrow = tomorrowISO();
+    const weekEnd = endOfWeekISO();
+
+    const pending = tasks.filter((t) => t.status === "pendiente");
+    const done = tasks.filter((t) => t.status === "hecha");
+
+    return {
+      hoy: pending.filter((t) => t.due_date === today),
+      manana: pending.filter((t) => t.due_date === tomorrow),
+      semana: pending.filter(
+        (t) =>
+          t.due_date &&
+          t.due_date > tomorrow &&
+          t.due_date <= weekEnd
+      ),
+      futuras: pending.filter(
+        (t) => !t.due_date || t.due_date > weekEnd
+      ),
+      hechas: done,
+    };
+  }, [tasks]);
 
   return (
     <div>
-      <p className="text-sm text-muted capitalize mb-1">{dateLabel}</p>
-      <h1 className="text-2xl mb-8">Inicio</h1>
-
-      <section className="mb-10">
-        <div className="flex items-baseline justify-between mb-1">
-          <h2 className="text-sm text-muted">Tareas de hoy</h2>
-          {totalToday > 0 && (
-            <span className="font-mono text-sm text-amber">{pct}%</span>
-          )}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl">Tareas</h1>
+        <div className="flex gap-1 text-sm">
+          <button
+            onClick={() => setView("lista")}
+            className={`px-3 py-1.5 rounded-sm ${
+              view === "lista" ? "bg-inkline" : "text-muted"
+            }`}
+          >
+            Lista
+          </button>
+          <button
+            onClick={() => setView("calendario")}
+            className={`px-3 py-1.5 rounded-sm ${
+              view === "calendario" ? "bg-inkline" : "text-muted"
+            }`}
+          >
+            Calendario
+          </button>
         </div>
+      </div>
 
-        {loading ? (
-          <p className="text-sm text-muted">Cargando...</p>
-        ) : totalToday === 0 ? (
-          <p className="text-sm text-muted">No tenés tareas para hoy.</p>
-        ) : (
-          <div>
-            {todayTasks.map((t) => (
-              <TaskRow key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} />
-            ))}
-            {doneToday.map((t) => (
-              <TaskRow key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} />
-            ))}
-          </div>
-        )}
+      {view === "calendario" ? (
+        <CalendarView
+          tasks={tasks}
+          onAdd={addTask}
+          onToggle={toggleTask}
+          onDelete={deleteTask}
+        />
+      ) : (
+        <>
+          <QuickAddTask onAdd={addTask} />
 
-        <Link
-          href="/tasks"
-          className="inline-block mt-3 text-sm text-amber hover:underline"
-        >
-          Ver todas las tareas
-        </Link>
-      </section>
-
-      <section className="border-t border-border pt-6">
-        <p className="text-sm text-muted">
-          Próximos módulos: Hábitos, Objetivos y Finanzas se van a sumar acá
-          mismo, cada uno con su propio resumen.
-        </p>
-      </section>
+          {loading ? (
+            <p className="text-sm text-muted">Cargando...</p>
+          ) : tasks.length === 0 ? (
+            <p className="text-sm text-muted">
+              No tenés tareas todavía. Agregá la primera arriba.
+            </p>
+          ) : (
+            <>
+              <TaskGroup title="Hoy" tasks={groups.hoy} onToggle={toggleTask} onDelete={deleteTask} />
+              <TaskGroup title="Mañana" tasks={groups.manana} onToggle={toggleTask} onDelete={deleteTask} />
+              <TaskGroup title="Esta semana" tasks={groups.semana} onToggle={toggleTask} onDelete={deleteTask} />
+              <TaskGroup title="Futuras / sin fecha" tasks={groups.futuras} onToggle={toggleTask} onDelete={deleteTask} />
+              <TaskGroup title="Hechas" tasks={groups.hechas} onToggle={toggleTask} onDelete={deleteTask} />
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 }
