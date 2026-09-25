@@ -7,7 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 const modules = [
   { href: "/", label: "Inicio" },
   { href: "/tasks", label: "Tareas" },
-  // Próximos módulos: Hábitos, Objetivos, Finanzas, Calendario...
+  { href: "/finances", label: "Finanzas" },
+  // Próximos módulos: Hábitos, Objetivos...
 ];
 
 export default function Sidebar() {
