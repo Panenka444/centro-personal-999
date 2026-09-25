@@ -12,3 +12,25 @@ export interface Task {
   status: TaskStatus;
   created_at: string;
 }
+
+export type TransactionType = "ingreso" | "gasto";
+
+export interface Transaction {
+  id: string;
+  user_id: string;
+  type: TransactionType;
+  amount: number;
+  category: string | null;
+  description: string | null;
+  date: string; // YYYY-MM-DD
+  created_at: string;
+}
+
+export interface SavingsGoal {
+  id: string;
+  user_id: string;
+  title: string;
+  target_amount: number;
+  current_amount: number;
+  updated_at: string;
+}
